@@ -80,6 +80,7 @@ private:
 
       ThreadLocalClusterManagerImpl& parent_;
       HostSetImpl host_set_;
+      Optional<HostSetImpl&> local_host_set_;
       LoadBalancerPtr lb_;
       const Cluster& primary_cluster_;
       Http::AsyncClientImpl http_async_client_;
@@ -98,7 +99,7 @@ private:
                                         ConstHostVectorPtr local_zone_healthy_hosts,
                                         const std::vector<HostPtr>& hosts_added,
                                         const std::vector<HostPtr>& hosts_removed,
-                                        ThreadLocal::Instance& tls, uint32_t thead_local_slot);
+                                        ThreadLocal::Instance& tls, uint32_t thread_local_slot);
 
     // ThreadLocal::ThreadLocalObject
     void shutdown() override;
@@ -127,6 +128,7 @@ private:
   uint32_t pending_cluster_init_;
   Optional<SdsConfig> sds_config_;
   std::list<SdsClusterImpl*> sds_clusters_;
+  Optional<std::string> local_cluster_name_;
 };
 
 /**

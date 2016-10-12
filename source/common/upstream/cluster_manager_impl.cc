@@ -43,6 +43,15 @@ ClusterManagerImpl::ClusterManagerImpl(const Json::Object& config, Stats::Store&
     loadCluster(cluster, stats, dns_resolver, ssl_context_manager, runtime, random);
   }
 
+  if (config.hasObject("local_cluster")) {
+    Json::Object local_cluster = config.getObject("local_cluster");
+    std::string local_cluster_name = local_cluster.getString("name");
+    if (get(local_cluster_name) == nullptr) {
+      throw EnvoyException(fmt::format("Local cluster '{}' must be defined", local_cluster_name));
+    }
+    local_cluster_name_.value(local_cluster_name);
+  }
+
   tls.set(thread_local_slot_,
           [this, &stats, &runtime, &random, local_zone_name, local_address](
               Event::Dispatcher& dispatcher) -> ThreadLocal::ThreadLocalObjectPtr {

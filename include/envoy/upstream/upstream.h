@@ -129,6 +129,8 @@ public:
   virtual const std::vector<HostPtr>& localZoneHealthyHosts() const PURE;
 };
 
+typedef std::shared_ptr<HostSet> HostSetPtr;
+
 /**
  * All cluster stats. @see stats_macros.h
  */
