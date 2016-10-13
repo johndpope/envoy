@@ -51,6 +51,9 @@ private:
     // Upstream:HostDescription
     bool canary() const override { return false; }
     const Cluster& cluster() const override { return logical_host_->cluster(); }
+    OutlierDetectorHostSink& outlierDetector() const override {
+      return logical_host_->outlierDetector();
+    }
     const HostStats& stats() const override { return logical_host_->stats(); }
     const std::string& url() const override { return url_; }
     const std::string& zone() const override { return EMPTY_STRING; }
@@ -69,6 +72,7 @@ private:
   void startResolve();
 
   Network::DnsResolver& dns_resolver_;
+  const std::chrono::milliseconds dns_refresh_rate_ms_;
   ThreadLocal::Instance& tls_;
   uint32_t tls_slot_;
   std::function<void()> initialize_callback_;

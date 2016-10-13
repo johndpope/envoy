@@ -58,6 +58,7 @@ TEST(StrictDnsClusterImplTest, Basic) {
     "name": "name",
     "connect_timeout_ms": 250,
     "type": "strict_dns",
+    "dns_refresh_rate_ms": 4000,
     "lb_type": "round_robin",
     "circuit_breakers": {
       "default": {
@@ -97,7 +98,7 @@ TEST(StrictDnsClusterImplTest, Basic) {
                                 -> void { membership_updated.ready(); });
 
   resolver1.expectResolve(dns_resolver);
-  EXPECT_CALL(*resolver1.timer_, enableTimer(_));
+  EXPECT_CALL(*resolver1.timer_, enableTimer(std::chrono::milliseconds(4000)));
   EXPECT_CALL(membership_updated, ready());
   resolver1.dns_callback_({"127.0.0.1", "127.0.0.2"});
   EXPECT_THAT(std::list<std::string>({"tcp://127.0.0.1:11001", "tcp://127.0.0.2:11001"}),
@@ -105,26 +106,26 @@ TEST(StrictDnsClusterImplTest, Basic) {
 
   resolver1.expectResolve(dns_resolver);
   resolver1.timer_->callback_();
-  EXPECT_CALL(*resolver1.timer_, enableTimer(_));
+  EXPECT_CALL(*resolver1.timer_, enableTimer(std::chrono::milliseconds(4000)));
   resolver1.dns_callback_({"127.0.0.2", "127.0.0.1"});
   EXPECT_THAT(std::list<std::string>({"tcp://127.0.0.1:11001", "tcp://127.0.0.2:11001"}),
               ContainerEq(hostListToURLs(cluster.hosts())));
 
   resolver1.expectResolve(dns_resolver);
   resolver1.timer_->callback_();
-  EXPECT_CALL(*resolver1.timer_, enableTimer(_));
+  EXPECT_CALL(*resolver1.timer_, enableTimer(std::chrono::milliseconds(4000)));
   resolver1.dns_callback_({"127.0.0.2", "127.0.0.1"});
   EXPECT_THAT(std::list<std::string>({"tcp://127.0.0.1:11001", "tcp://127.0.0.2:11001"}),
               ContainerEq(hostListToURLs(cluster.hosts())));
 
   resolver1.timer_->callback_();
-  EXPECT_CALL(*resolver1.timer_, enableTimer(_));
+  EXPECT_CALL(*resolver1.timer_, enableTimer(std::chrono::milliseconds(4000)));
   EXPECT_CALL(membership_updated, ready());
   resolver1.dns_callback_({"127.0.0.3"});
   EXPECT_THAT(std::list<std::string>({"tcp://127.0.0.3:11001"}),
               ContainerEq(hostListToURLs(cluster.hosts())));
 
-  EXPECT_CALL(*resolver2.timer_, enableTimer(_));
+  EXPECT_CALL(*resolver2.timer_, enableTimer(std::chrono::milliseconds(4000)));
   EXPECT_CALL(membership_updated, ready());
   resolver2.dns_callback_({"10.0.0.1"});
   EXPECT_THAT(std::list<std::string>({"tcp://127.0.0.3:11001", "tcp://10.0.0.1:11002"}),
@@ -183,6 +184,44 @@ TEST(HostImplTest, CanaryAndZone) {
 TEST(HostImplTest, MalformedUrl) {
   MockCluster cluster;
   EXPECT_THROW(HostImpl(cluster, "fake\\10.0.0.1:1234", false, 1, ""), EnvoyException);
+}
+
+TEST(StaticClusterImplTest, OutlierDetector) {
+  Stats::IsolatedStoreImpl stats;
+  Ssl::MockContextManager ssl_context_manager;
+  NiceMock<Runtime::MockLoader> runtime;
+  std::string json = R"EOF(
+  {
+    "name": "addressportconfig",
+    "connect_timeout_ms": 250,
+    "type": "static",
+    "lb_type": "random",
+    "hosts": [{"url": "tcp://10.0.0.1:11001"},
+              {"url": "tcp://10.0.0.2:11002"}]
+  }
+  )EOF";
+
+  Json::StringLoader config(json);
+  StaticClusterImpl cluster(config, runtime, stats, ssl_context_manager);
+
+  MockOutlierDetector* detector = new MockOutlierDetector();
+  EXPECT_CALL(*detector, addChangedStateCb(_));
+  cluster.setOutlierDetector(OutlierDetectorPtr{detector});
+
+  EXPECT_EQ(2UL, cluster.healthyHosts().size());
+
+  // Set a single host as having failed and fire outlier detector callbacks. This should result
+  // in only a single healthy host.
+  cluster.hosts()[0]->outlierDetector().putHttpResponseCode(503);
+  cluster.hosts()[0]->healthFlagSet(Host::HealthFlag::FAILED_OUTLIER_CHECK);
+  detector->runCallbacks(cluster.hosts()[0]);
+  EXPECT_EQ(1UL, cluster.healthyHosts().size());
+  EXPECT_NE(cluster.healthyHosts()[0], cluster.hosts()[0]);
+
+  // Bring the host back online.
+  cluster.hosts()[0]->healthFlagClear(Host::HealthFlag::FAILED_OUTLIER_CHECK);
+  detector->runCallbacks(cluster.hosts()[0]);
+  EXPECT_EQ(2UL, cluster.healthyHosts().size());
 }
 
 TEST(StaticClusterImplTest, UrlConfig) {

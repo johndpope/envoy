@@ -16,6 +16,8 @@
 
 namespace Upstream {
 
+OutlierDetectorHostSinkNullImpl HostDescriptionImpl::null_outlier_detector_;
+
 Host::CreateConnectionData HostImpl::createConnection(Event::Dispatcher& dispatcher) const {
   return {createConnection(dispatcher, cluster_, url_), shared_from_this()};
 }
@@ -131,6 +133,18 @@ void ClusterImplBase::setHealthChecker(HealthCheckerPtr&& health_checker) {
       updateHosts(rawHosts(), createHealthyHostList(*rawHosts()), rawLocalZoneHosts(),
                   createHealthyHostList(*rawLocalZoneHosts()), {}, {});
     }
+  });
+}
+
+void ClusterImplBase::setOutlierDetector(OutlierDetectorPtr&& outlier_detector) {
+  if (!outlier_detector) {
+    return;
+  }
+
+  outlier_detector_ = std::move(outlier_detector);
+  outlier_detector_->addChangedStateCb([this](HostPtr) -> void {
+    updateHosts(rawHosts(), createHealthyHostList(*rawHosts()), rawLocalZoneHosts(),
+                createHealthyHostList(*rawLocalZoneHosts()), {}, {});
   });
 }
 
@@ -262,7 +276,8 @@ StrictDnsClusterImpl::StrictDnsClusterImpl(const Json::Object& config, Runtime::
                                            Ssl::ContextManager& ssl_context_manager,
                                            Network::DnsResolver& dns_resolver)
     : BaseDynamicClusterImpl(config, runtime, stats, ssl_context_manager),
-      dns_resolver_(dns_resolver) {
+      dns_resolver_(dns_resolver), dns_refresh_rate_ms_(std::chrono::milliseconds(
+                                       config.getInteger("dns_refresh_rate_ms", 5000))) {
   for (Json::Object& host : config.getObjectArray("hosts")) {
     resolve_targets_.emplace_back(new ResolveTarget(*this, host.getString("url")));
   }
@@ -326,7 +341,7 @@ void StrictDnsClusterImpl::ResolveTarget::startResolve() {
           parent_.initialize_callback_ = nullptr;
         }
 
-        resolve_timer_->enableTimer(std::chrono::milliseconds(5000));
+        resolve_timer_->enableTimer(parent_.dns_refresh_rate_ms_);
       });
 }
 

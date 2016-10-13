@@ -63,7 +63,8 @@ TEST_F(LogicalDnsClusterTest, Basic) {
     "connect_timeout_ms": 250,
     "type": "logical_dns",
     "lb_type": "round_robin",
-    "hosts": [{"url": "tcp://foo.bar.com:443"}]
+    "hosts": [{"url": "tcp://foo.bar.com:443"}],
+    "dns_refresh_rate_ms": 4000
   }
   )EOF";
 
@@ -72,7 +73,7 @@ TEST_F(LogicalDnsClusterTest, Basic) {
 
   EXPECT_CALL(membership_updated_, ready());
   EXPECT_CALL(initialized_, ready());
-  EXPECT_CALL(*resolve_timer_, enableTimer(_));
+  EXPECT_CALL(*resolve_timer_, enableTimer(std::chrono::milliseconds(4000)));
   dns_callback_({"127.0.0.1", "127.0.0.2"});
 
   EXPECT_EQ(1UL, cluster_->hosts().size());
@@ -84,6 +85,7 @@ TEST_F(LogicalDnsClusterTest, Basic) {
 
   EXPECT_CALL(dns_resolver_.dispatcher_, createClientConnection_("tcp://127.0.0.1:443"));
   logical_host->createConnection(dns_resolver_.dispatcher_);
+  logical_host->outlierDetector().putHttpResponseCode(200);
 
   expectResolve();
   resolve_timer_->callback_();
@@ -100,6 +102,7 @@ TEST_F(LogicalDnsClusterTest, Basic) {
   EXPECT_EQ(&cluster_->hosts()[0]->stats(), &data.host_description_->stats());
   EXPECT_EQ("tcp://127.0.0.1:443", data.host_description_->url());
   EXPECT_EQ("", data.host_description_->zone());
+  data.host_description_->outlierDetector().putHttpResponseCode(200);
 
   expectResolve();
   resolve_timer_->callback_();
