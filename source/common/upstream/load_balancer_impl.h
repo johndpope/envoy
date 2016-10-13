@@ -11,7 +11,7 @@ namespace Upstream {
  */
 class LoadBalancerBase {
 protected:
-  LoadBalancerBase(const HostSet& host_set, HostSetPtr local_host_set, ClusterStats& stats,
+  LoadBalancerBase(const HostSet& host_set, const HostSet* local_host_set, ClusterStats& stats,
                    Runtime::Loader& runtime, Runtime::RandomGenerator& random)
       : stats_(stats), runtime_(runtime), random_(random), host_set_(host_set),
         local_host_set_(local_host_set) {}
@@ -27,7 +27,7 @@ protected:
 
 private:
   const HostSet& host_set_;
-  HostSetPtr local_host_set_;
+  const HostSet* local_host_set_;
 };
 
 /**
@@ -35,8 +35,9 @@ private:
  */
 class RoundRobinLoadBalancer : public LoadBalancer, LoadBalancerBase {
 public:
-  RoundRobinLoadBalancer(const HostSet& host_set, HostSetPtr local_host_set_, ClusterStats& stats,
-                         Runtime::Loader& runtime, Runtime::RandomGenerator& random)
+  RoundRobinLoadBalancer(const HostSet& host_set, const HostSet* local_host_set_,
+                         ClusterStats& stats, Runtime::Loader& runtime,
+                         Runtime::RandomGenerator& random)
       : LoadBalancerBase(host_set, local_host_set_, stats, runtime, random) {}
 
   // Upstream::LoadBalancer
@@ -61,8 +62,9 @@ private:
  */
 class LeastRequestLoadBalancer : public LoadBalancer, LoadBalancerBase {
 public:
-  LeastRequestLoadBalancer(const HostSet& host_set, HostSetPtr local_host_set_, ClusterStats& stats,
-                           Runtime::Loader& runtime, Runtime::RandomGenerator& random);
+  LeastRequestLoadBalancer(const HostSet& host_set, const HostSet* local_host_set_,
+                           ClusterStats& stats, Runtime::Loader& runtime,
+                           Runtime::RandomGenerator& random);
 
   // Upstream::LoadBalancer
   ConstHostPtr chooseHost() override;
@@ -77,7 +79,7 @@ private:
  */
 class RandomLoadBalancer : public LoadBalancer, LoadBalancerBase {
 public:
-  RandomLoadBalancer(const HostSet& host_set, HostSetPtr local_host_set, ClusterStats& stats,
+  RandomLoadBalancer(const HostSet& host_set, const HostSet* local_host_set, ClusterStats& stats,
                      Runtime::Loader& runtime, Runtime::RandomGenerator& random)
       : LoadBalancerBase(host_set, local_host_set, stats, runtime, random) {}
 

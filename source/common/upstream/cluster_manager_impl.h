@@ -74,13 +74,13 @@ private:
       ClusterEntry(ThreadLocalClusterManagerImpl& parent, const Cluster& cluster,
                    Runtime::Loader& runtime, Runtime::RandomGenerator& random,
                    Stats::Store& stats_store, Event::Dispatcher& dispatcher,
-                   const std::string& local_zone_name, const std::string& local_address);
+                   const std::string& local_zone_name, const std::string& local_address,
+                   const Optional<std::string>& local_cluster_name);
 
       Http::ConnectionPool::Instance* connPool(ResourcePriority priority);
 
       ThreadLocalClusterManagerImpl& parent_;
       HostSetImpl host_set_;
-      Optional<HostSetImpl&> local_host_set_;
       LoadBalancerPtr lb_;
       const Cluster& primary_cluster_;
       Http::AsyncClientImpl http_async_client_;
@@ -91,7 +91,8 @@ private:
     ThreadLocalClusterManagerImpl(ClusterManagerImpl& parent, Event::Dispatcher& dispatcher,
                                   Runtime::Loader& runtime, Runtime::RandomGenerator& random,
                                   const std::string& local_zone_name,
-                                  const std::string& local_address);
+                                  const std::string& local_address,
+                                  const Optional<std::string>& local_cluster_name);
     void drainConnPools(HostPtr old_host, ConnPoolsContainer& container);
     static void updateClusterMembership(const std::string& name, ConstHostVectorPtr hosts,
                                         ConstHostVectorPtr healthy_hosts,
@@ -128,7 +129,6 @@ private:
   uint32_t pending_cluster_init_;
   Optional<SdsConfig> sds_config_;
   std::list<SdsClusterImpl*> sds_clusters_;
-  Optional<std::string> local_cluster_name_;
 };
 
 /**

@@ -80,8 +80,8 @@ ConstHostPtr RoundRobinLoadBalancer::chooseHost() {
 }
 
 LeastRequestLoadBalancer::LeastRequestLoadBalancer(const HostSet& host_set,
-                                                   HostSetPtr local_host_set, ClusterStats& stats,
-                                                   Runtime::Loader& runtime,
+                                                   const HostSet* local_host_set,
+                                                   ClusterStats& stats, Runtime::Loader& runtime,
                                                    Runtime::RandomGenerator& random)
     : LoadBalancerBase(host_set, local_host_set, stats, runtime, random) {
   host_set.addMemberUpdateCb(
